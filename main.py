@@ -45,8 +45,19 @@ class MessagePayload(BaseModel):
     message: str
 
 
-# Global instance of OpenAIAgent
+# Global instance of OpenAIAgent, ZepClient
 agent = OpenAIAgent()
+zep_client = ZepClient(zep_base_url)
+
+
+@app.on_event("startup")
+async def startup_event():
+    await zep_client.__aenter__()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await zep_client.__aexit__()
 
 
 @app.post("/generate_message")
@@ -55,14 +66,13 @@ async def generate_message(payload: MessagePayload):
     if input_message:
         response = await agent.generate_message(input_message)
 
-        # Save the conversation history
-        async with ZepClient(zep_base_url) as client:
-            messages = [
-                Message(role="human", content=input_message),
-                Message(role="ai", content=response),
-            ]
-            memory = Memory(messages=messages)
-            await client.aadd_memory(zep_session_id, memory)
+        # Use the global client for saving the conversation history
+        messages = [
+            Message(role="human", content=input_message),
+            Message(role="ai", content=response),
+        ]
+        memory = Memory(messages=messages)
+        await zep_client.aadd_memory(zep_session_id, memory)
 
         return {"response": response}
     else:
@@ -71,15 +81,12 @@ async def generate_message(payload: MessagePayload):
 
 @app.get("/prompts")
 async def get_prompts():
-    return {"prompts": list(PROMPTS.keys())}
+    return {"prompts": PROMPTS}
 
 
-@app.get("/prompts/{prompt_name}")
-async def get_prompt(prompt_name: str):
-    if prompt_name in PROMPTS:
-        return {"prompt": PROMPTS[prompt_name]}
-    else:
-        return {"error": f"Prompt {prompt_name} not found"}
+@app.get("/summary")
+async def get_summary():
+    pass
 
 
 def main():
