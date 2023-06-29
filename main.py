@@ -1,11 +1,12 @@
 import os
 import openai
-import logging
+import sys
 from fastapi import FastAPI
 from pydantic import BaseModel
 from zep_python import Memory, Message, ZepClient
 from typing import Dict
 from fastapi import Depends
+from loguru import logger
 
 app = FastAPI()
 
@@ -15,10 +16,10 @@ zep_base_url = "http://localhost:8000"  # Replace with Zep API URL
 zep_session_id = "2a2a2a"  # Replace with appropriate session identifier
 
 # Set up logging
-DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1"]
-log_level = logging.DEBUG if DEBUG else logging.INFO
-logging.basicConfig(level=log_level)
-logger = logging.getLogger(__name__)
+VERBOSE = os.getenv("VERBOSE", "False").lower() in ["true", "1"]
+log_level = "INFO" if VERBOSE else "ERROR"
+logger.remove()  # Remove default logger configuration
+logger.add(sys.stdout, level=log_level, colorize=True, format="<cyan>PANTHEON</cyan>: {message}")
 
 # Global Instances
 zep_client = ZepClient(zep_base_url)
@@ -38,7 +39,7 @@ class OpenAIAgent:
         self.system_prompt = system_prompt
 
     async def generate_message(self, prompt):
-        logger.debug(f"Generating message with prompt: {prompt}")
+        logger.info(f"Generating message with prompt: {prompt}")
         response = await openai.ChatCompletion.acreate(
             model="gpt-3.5-turbo",
             messages=[
@@ -51,7 +52,7 @@ class OpenAIAgent:
             max_tokens=self.max_tokens,
             temperature=self.temperature,
         )
-        logger.debug(f"Generated message: {response.choices[0].message['content']}")
+        logger.info(f"Generated message: {response.choices[0].message['content']}")
         return response.choices[0].message["content"]
 
 
@@ -78,16 +79,16 @@ async def startup_event():
 
     # use the first prompt as the default
     DEFAULT_PROMPT = list(PROMPTS.values())[0]
-    logger.info(f"Using default prompt: {DEFAULT_PROMPT}")
+    logger.opt(colors=True).info(
+        f"Using default prompt: <i><y>{DEFAULT_PROMPT}</y></i>"
+    )  # i = italic, y = yellow
 
     agent = OpenAIAgent(system_prompt=DEFAULT_PROMPT)
-
-    await zep_client.__aenter__()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    await zep_client.__aexit__()
+    await zep_client.__aexit__(None, None, None)
 
 
 @app.post("/generate_message")
@@ -102,7 +103,9 @@ async def generate_message(payload: MessagePayload, agent: OpenAIAgent = Depends
             Message(role="ai", content=response),
         ]
         memory = Memory(messages=messages)
-        await zep_client.aadd_memory(zep_session_id, memory)
+
+        async with zep_client:
+            await zep_client.aadd_memory(zep_session_id, memory)
 
         return {"response": response}
     else:
