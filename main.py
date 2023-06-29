@@ -1,5 +1,6 @@
 import os
 import openai
+import logging
 from fastapi import FastAPI
 from pydantic import BaseModel
 from zep_python import Memory, Message, ZepClient
@@ -12,6 +13,12 @@ app = FastAPI()
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 zep_base_url = "http://localhost:8000"  # Replace with Zep API URL
 zep_session_id = "2a2a2a"  # Replace with appropriate session identifier
+
+# Set up logging
+DEBUG = os.getenv("DEBUG", "False").lower() in ["true", "1"]
+log_level = logging.DEBUG if DEBUG else logging.INFO
+logging.basicConfig(level=log_level)
+logger = logging.getLogger(__name__)
 
 # Global Instances
 zep_client = ZepClient(zep_base_url)
@@ -31,6 +38,7 @@ class OpenAIAgent:
         self.system_prompt = system_prompt
 
     async def generate_message(self, prompt):
+        logger.debug(f"Generating message with prompt: {prompt}")
         response = await openai.ChatCompletion.acreate(
             model="gpt-3.5-turbo",
             messages=[
@@ -43,6 +51,7 @@ class OpenAIAgent:
             max_tokens=self.max_tokens,
             temperature=self.temperature,
         )
+        logger.debug(f"Generated message: {response.choices[0].message['content']}")
         return response.choices[0].message["content"]
 
 
@@ -69,7 +78,7 @@ async def startup_event():
 
     # use the first prompt as the default
     DEFAULT_PROMPT = list(PROMPTS.values())[0]
-    print(f"Using default prompt: {DEFAULT_PROMPT}")
+    logger.info(f"Using default prompt: {DEFAULT_PROMPT}")
 
     agent = OpenAIAgent(system_prompt=DEFAULT_PROMPT)
 
