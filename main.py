@@ -3,6 +3,8 @@ import openai
 from fastapi import FastAPI
 from pydantic import BaseModel
 from zep_python import Memory, Message, ZepClient
+from typing import Dict
+from fastapi import Depends
 
 app = FastAPI()
 
@@ -10,8 +12,11 @@ app = FastAPI()
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 zep_base_url = "http://localhost:8000"  # Replace with Zep API URL
 zep_session_id = "2a2a2a"  # Replace with appropriate session identifier
+
+# Global Instances
+zep_client = ZepClient(zep_base_url)
+agent = None
 PROMPTS = {}
-DEFAULT_PROMPT = "99_dummy"
 
 
 class OpenAIAgent:
@@ -45,13 +50,29 @@ class MessagePayload(BaseModel):
     message: str
 
 
-# Global instance of OpenAIAgent, ZepClient
-agent = OpenAIAgent()
-zep_client = ZepClient(zep_base_url)
+def get_agent() -> OpenAIAgent:
+    return agent
+
+
+def get_prompts() -> Dict[str, str]:
+    return PROMPTS
 
 
 @app.on_event("startup")
 async def startup_event():
+    global agent
+    global PROMPTS
+    # read all prompts from files in prompts/ folder. add them to a dictionary with the filename as the key.
+    for filename in os.listdir("prompts"):
+        with open(os.path.join("prompts", filename), "r") as f:
+            PROMPTS[filename.rstrip(".txt")] = f.read()
+
+    # use the first prompt as the default
+    DEFAULT_PROMPT = list(PROMPTS.values())[0]
+    print(f"Using default prompt: {DEFAULT_PROMPT}")
+
+    agent = OpenAIAgent(system_prompt=DEFAULT_PROMPT)
+
     await zep_client.__aenter__()
 
 
@@ -61,7 +82,7 @@ async def shutdown_event():
 
 
 @app.post("/generate_message")
-async def generate_message(payload: MessagePayload):
+async def generate_message(payload: MessagePayload, agent: OpenAIAgent = Depends(get_agent)):
     input_message = payload.message
     if input_message:
         response = await agent.generate_message(input_message)
@@ -80,8 +101,8 @@ async def generate_message(payload: MessagePayload):
 
 
 @app.get("/prompts")
-async def get_prompts():
-    return {"prompts": PROMPTS}
+async def get_prompts(prompts: Dict[str, str] = Depends(get_prompts)):
+    return {"prompts": prompts}
 
 
 @app.get("/summary")
@@ -91,15 +112,6 @@ async def get_summary():
 
 def main():
     import uvicorn
-
-    # read all prompts from files in prompts/ folder. add them to a dictionary with the filename as the key.
-    for filename in os.listdir("prompts"):
-        with open(os.path.join("prompts", filename), "r") as f:
-            PROMPTS[filename.rstrip(".txt")] = f.read()
-
-    # use the first prompt as the default
-    DEFAULT_PROMPT = list(PROMPTS.values())[0]
-    print(f"Using default prompt: {DEFAULT_PROMPT}")
 
     uvicorn.run(app, host="localhost", port=5000)
 
