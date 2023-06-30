@@ -23,16 +23,16 @@ class OpenAIClient:
             with open(os.path.join("prompts", filename), "r") as f:
                 self.prompts[filename.rstrip(".txt")] = f.read()
 
-        # use the first prompt as the default
-        chosen_prompts = list(self.prompts.values())[0]
+        # use the first prompt as the default system prompt
+        chosen_prompts = list(self.prompts.values())[-1]
         logger.opt(colors=True).info(
-            f"Using prompt: <i><y>{chosen_prompts}</y></i>"
+            f"~~ <i><y>{repr(chosen_prompts)}</y></i>"
         )  # i = italic, y = yellow
 
         self.system_prompt = chosen_prompts
 
     async def generate_message(self, prompt):
-        logger.info(f"Generating message with prompt: {prompt}")
+        logger.info(f"<< {repr(prompt)}")
         response = await openai.ChatCompletion.acreate(
             model="gpt-3.5-turbo",
             messages=[
@@ -45,7 +45,7 @@ class OpenAIClient:
             max_tokens=self.max_tokens,
             temperature=self.temperature,
         )
-        logger.info(f"Generated message: {response.choices[0].message['content']}")
+        logger.info(f">> {repr(response.choices[0].message['content'])}")
         return response.choices[0].message["content"]
 
 

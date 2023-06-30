@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from fastapi import APIRouter, Depends
 from zep_python import Memory, Message, ZepClient
 from app.services.openai import openai_client
-from app.services.zep import get_zep_client
+from app.services.zep import zep_client
 
 api_router = APIRouter()
 
@@ -10,7 +10,7 @@ class _MessagePayload(BaseModel):
     message: str
 
 @api_router.post("/generate_message")
-async def generate_message(payload: _MessagePayload, zep_client: ZepClient = Depends(get_zep_client)):
+async def generate_message(payload: _MessagePayload):
     input_message = payload.message
     if not input_message:
         return {"error": "No input message provided"}
@@ -24,11 +24,8 @@ async def generate_message(payload: _MessagePayload, zep_client: ZepClient = Dep
     ]
     memory = Memory(messages=messages)
 
-    async with zep_client:
-        await zep_client.aadd_memory("zep_session_id", memory) 
-        # TODO: use a session ID that is unique to the user
-        # print log when exiting the context manager
-    print("Exiting context manager")
+    # TODO: use a session ID that is unique to the user
+    await zep_client.aadd_memory("zep_session_id", memory) 
 
     return {"response": response}
 
