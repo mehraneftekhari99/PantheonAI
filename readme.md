@@ -36,7 +36,7 @@ poetry install
 To run the project, use the following command:
 
 ```bash
-python main.py
+python run.py
 ```
 
 The application will start on localhost port 5000.
