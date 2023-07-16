@@ -72,3 +72,4 @@ Contributions are welcome. Please open an issue to discuss your ideas before mak
 ## License
 
 This project is licensed under the [GPL-3.0 License](https://www.tldrlegal.com/license/gnu-general-public-license-v3-gpl-3).
+City names list is taken from [simplemaps](https://simplemaps.com/data/ir-cities) with some minor modifications.

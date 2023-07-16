@@ -48,5 +48,23 @@ class OpenAIClient:
         logger.info(f">> {repr(response.choices[0].message['content'])}")
         return response.choices[0].message["content"]
 
+    async def generate_message_with_history(self, prompt, history):
+        logger.info(f"<# {repr(prompt)}")
+        response = await openai.ChatCompletion.acreate(
+            model="gpt-3.5-turbo",
+            messages=[
+                {
+                    "role": "system",
+                    "content": self.system_prompt,
+                },
+                *history,
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+        )
+        logger.info(f"#> {repr(response.choices[0].message['content'])}")
+        return response.choices[0].message["content"]
+
 
 openai_client = OpenAIClient()
