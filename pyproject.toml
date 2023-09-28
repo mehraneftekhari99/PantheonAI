@@ -6,12 +6,11 @@ authors = ["Shahriar <mehraneftekhari99@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">3.8, <4"
 zep-python = "^0.31"
 flask = "^2.3.2"
 openai = "^0.27.8"
 colorama = "^0.4.6"
-gnureadline = "^8.1.2"
 fastapi = "^0.98.0"
 uvicorn = "^0.22.0"
 gunicorn = "^20.1.0"

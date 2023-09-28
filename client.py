@@ -4,7 +4,6 @@ import json
 import signal
 import random
 import textwrap
-import readline
 import requests
 from colorama import Fore, Style
 
